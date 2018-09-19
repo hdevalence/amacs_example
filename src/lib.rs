@@ -298,6 +298,10 @@ impl IssuerKeypair {
         pres: &CredentialPresentation,
         transcript: &mut Transcript,
     ) -> Result<(), ()> {
+        if pres.tag.P.is_identity() {
+            return Err(());
+        }
+
         let pg = PedersenGens::default();
 
         let V_prime = RistrettoPoint::multiscalar_mul(

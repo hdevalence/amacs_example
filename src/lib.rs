@@ -651,4 +651,33 @@ mod tests {
         assert!(issuance_result.is_ok());
     }
 
+    #[test]
+    fn check_blind_issue_presentation() {
+        let keypair = IssuerKeypair::default();
+        let pk = keypair.pk.clone();
+
+        // Wrap credential issuance (test setup) in its own scope
+        let cred = {
+            let mut user_transcript = Transcript::new(b"BlindIssueDemo");
+            let mut issuer_transcript = Transcript::new(b"BlindIssueDemo");
+
+            let req_sk = BlindIssuanceRequestSecret::new(1u64.into(), 2u64.into());
+            let req = BlindIssuanceRequest::new(&req_sk, &mut user_transcript);
+
+            let resp = keypair.blind_issue(&mut issuer_transcript, &req).unwrap();
+
+            let issuance_result = resp.validate(&req, &req_sk, &pk, &mut user_transcript);
+
+            issuance_result.unwrap()
+        };
+
+        let mut client_transcript = Transcript::new(b"CredShowDemo");
+        let presentation = cred.present(&pk, &mut client_transcript);
+
+        let mut issuer_transcript = Transcript::new(b"CredShowDemo");
+        let pres_result = keypair.verify_presentation(&presentation, &mut issuer_transcript);
+
+        assert!(pres_result.is_ok());
+    }
+
 }

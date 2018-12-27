@@ -90,7 +90,7 @@ impl Default for PedersenGens {
     }
 }
 
-struct IssuerSecret {
+pub struct IssuerSecret {
     x_0_blinding: Scalar,
     x_0: Scalar,
     x_1: Scalar,
@@ -110,7 +110,7 @@ impl Default for IssuerSecret {
 }
 
 #[derive(Clone)]
-struct IssuerPublic {
+pub struct IssuerPublic {
     X_0: RistrettoPoint,
     X_1: RistrettoPoint,
     X_2: RistrettoPoint,
@@ -127,7 +127,7 @@ impl<'a> From<&'a IssuerSecret> for IssuerPublic {
     }
 }
 
-struct IssuerKeypair {
+pub struct IssuerKeypair {
     sk: IssuerSecret,
     pk: IssuerPublic,
 }
@@ -160,18 +160,18 @@ impl Tag {
     }
 }
 
-struct Credential {
+pub struct Credential {
     m_1: Scalar,
     m_2: Scalar,
     tag: Tag,
 }
 
-struct ClearIssuanceRequest {
+pub struct ClearIssuanceRequest {
     m_1: Scalar,
     m_2: Scalar,
 }
 
-struct ClearIssuanceResponse {
+pub struct ClearIssuanceResponse {
     tag: Tag,
     proof: proofs::cred_issue_2_clear::Proof,
 }
@@ -263,7 +263,7 @@ impl ClearIssuanceResponse {
     }
 }
 
-struct BlindIssuanceRequestSecret {
+pub struct BlindIssuanceRequestSecret {
     d: Scalar,
     m_1: Scalar,
     m_2: Scalar,
@@ -279,7 +279,7 @@ impl BlindIssuanceRequestSecret {
     }
 }
 
-struct BlindIssuanceRequest {
+pub struct BlindIssuanceRequest {
     enc_m_1: (RistrettoPoint, RistrettoPoint),
     enc_m_2: (RistrettoPoint, RistrettoPoint),
     D: RistrettoPoint,
@@ -328,7 +328,7 @@ impl BlindIssuanceRequest {
     }
 }
 
-struct BlindIssuanceResponse {
+pub struct BlindIssuanceResponse {
     P: RistrettoPoint,
     T_1: RistrettoPoint,
     T_2: RistrettoPoint,
@@ -487,7 +487,7 @@ impl BlindIssuanceResponse {
     }
 }
 
-struct CredentialPresentation {
+pub struct CredentialPresentation {
     tag: Tag,
     C_Q: RistrettoPoint,
     C_m_1: RistrettoPoint,

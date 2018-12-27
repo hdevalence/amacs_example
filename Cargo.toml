@@ -5,10 +5,10 @@ authors = ["Henry de Valence <hdevalence@hdevalence.ca>"]
 edition = "2018"
 
 [dependencies]
-rand = "0.5"
-sha3 = "0.7"
+rand = "0.6"
+sha3 = "0.8"
 serde = "1"
 serde_derive = "1"
-merlin = "0.3"
-curve25519-dalek = "0.19"
-zkp = {git = "https://github.com/dalek-cryptography/zkp"}
+merlin = "1"
+curve25519-dalek = "1"
+zkp = "0.5"

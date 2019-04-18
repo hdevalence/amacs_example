@@ -16,58 +16,65 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::{IsIdentity, MultiscalarMul, VartimeMultiscalarMul};
 
-use zkp::Transcript;
+use zkp::{CompactProof, Transcript};
 
-pub(crate) mod proofs {
-    create_nipk!{
+pub mod proofs {
+    define_proof! {
         cred_issue_2_clear,
+        "2attr cred issue clear",
         (x_0_blinding, x_0, x_1, x_2),
-        (X_0, X_1, X_2, A, B, P, Q, m_1_P, m_2_P)
+        (m_1_P, m_2_P, P, Q),
+        (X_0, X_1, X_2, A, B)
         :
-        X_0 = (B * x_0 + A * x_0_blinding),
-        X_1 = (A * x_1),
-        X_2 = (A * x_2),
-        Q = (P * x_0 + m_1_P * x_1 + m_2_P * x_2)
+        X_0 = (x_0 * B + x_0_blinding * A),
+        X_1 = (x_1 * A),
+        X_2 = (x_2 * A),
+        Q = (x_0 * P + x_1 * m_1_P + x_2 * m_2_P)
     }
 
-    create_nipk!{
+    define_proof! {
         cred_show_2_hidden,
+        "2attr cred show hidden",
         (m_1, m_2, z_1, z_2, minus_z_Q),
-        (X_1, X_2, A, V, P, C_m_1, C_m_2)
+        (V, P, C_m_1, C_m_2),
+        (X_1, X_2, A)
         :
-        C_m_1 = (P * m_1 + A * z_1),
-        C_m_2 = (P * m_2 + A * z_2),
-        V = (A * minus_z_Q + X_1 * z_1 + X_2 * z_2)
+        C_m_1 = (m_1 * P + z_1 * A),
+        C_m_2 = (m_2 * P + z_2 * A),
+        V = (minus_z_Q * A + z_1 * X_1 + z_2 * X_2)
     }
 
-    create_nipk!{
+    define_proof! {
         cred_issue_2_blind_user,
+        "2attr cred blind issue user proof",
         (d, e_1, e_2, m_1, m_2),
-        (E_1_0, E_1_1, E_2_0, E_2_1, D, B)
+        (E_1_0, E_1_1, E_2_0, E_2_1, D),
+        (B)
         :
-        D = (B * d),
-        E_1_0 = (B * e_1),
-        E_1_1 = (B * m_1 + D * e_1),
-        E_2_0 = (B * e_2),
-        E_2_1 = (B * m_2 + D * e_2)
+        D = (d * B),
+        E_1_0 = (e_1 * B),
+        E_1_1 = (m_1 * B + e_1 * D),
+        E_2_0 = (e_2 * B),
+        E_2_1 = (m_2 * B + e_2 * D)
     }
 
-    create_nipk!{
+    define_proof! {
         cred_issue_2_blind_issuer,
+        "2attr cred blind issue issuer proof",
         (x_0_blinding, x_0, x_1, x_2, b, s, t_1, t_2),
-        (X_0, X_1, X_2, A, B, P, D, T_1a, T_2a, T_1b, T_2b,
-         E_Q_0, E_Q_1, E_1_0, E_1_1, E_2_0, E_2_1)
+        (P, D, T_1a, T_2a, T_1b, T_2b, E_Q_0, E_Q_1, E_1_0, E_1_1, E_2_0, E_2_1),
+        (X_0, X_1, X_2, A, B)
         :
-        X_0 = (B * x_0 + A * x_0_blinding),
-        X_1 = (A * x_1),
-        X_2 = (A * x_2),
-        P = (B * b),
-        T_1a = (X_1 * b),
-        T_1b = (A * t_1),
-        T_2a = (X_2 * b),
-        T_2b = (A * t_2),
-        E_Q_0 = (B * s + E_1_0 * t_1 + E_2_0 * t_2),
-        E_Q_1 = (D * s + E_1_1 * t_1 + E_2_1 * t_2 + P * x_0)
+        X_0 = (x_0 * B + x_0_blinding * A),
+        X_1 = (x_1 * A),
+        X_2 = (x_2 * A),
+        P = (b * B),
+        T_1a = (b * X_1),
+        T_1b = (t_1 * A),
+        T_2a = (b * X_2),
+        T_2b = (t_2 * A),
+        E_Q_0 = (s * B + t_1 * E_1_0 + t_2 * E_2_0),
+        E_Q_1 = (s * D + t_1 * E_1_1 + t_2 * E_2_1 + x_0 * P)
     }
 }
 
@@ -173,7 +180,7 @@ pub struct ClearIssuanceRequest {
 
 pub struct ClearIssuanceResponse {
     tag: Tag,
-    proof: proofs::cred_issue_2_clear::Proof,
+    proof: CompactProof,
 }
 
 impl IssuerKeypair {
@@ -197,29 +204,29 @@ impl IssuerKeypair {
 
         use self::proofs::cred_issue_2_clear::*;
 
+        let (proof, _points) = prove_compact(
+            transcript,
+            ProveAssignments {
+                x_0_blinding: &self.sk.x_0_blinding,
+                x_0: &self.sk.x_0,
+                x_1: &self.sk.x_1,
+                x_2: &self.sk.x_2,
+                A: &pg.A,
+                B: &pg.B,
+                P: &P,
+                Q: &Q,
+                X_0: &self.pk.X_0,
+                X_1: &self.pk.X_1,
+                X_2: &self.pk.X_2,
+                m_1_P: &m_1_P,
+                m_2_P: &m_2_P,
+            },
+        );
+
         // Return the issuance response
         ClearIssuanceResponse {
             tag: Tag { P, Q },
-            proof: Proof::create(
-                transcript,
-                Publics {
-                    A: &pg.A,
-                    B: &pg.B,
-                    P: &P,
-                    Q: &Q,
-                    X_0: &self.pk.X_0,
-                    X_1: &self.pk.X_1,
-                    X_2: &self.pk.X_2,
-                    m_1_P: &m_1_P,
-                    m_2_P: &m_2_P,
-                },
-                Secrets {
-                    x_0_blinding: &self.sk.x_0_blinding,
-                    x_0: &self.sk.x_0,
-                    x_1: &self.sk.x_1,
-                    x_2: &self.sk.x_2,
-                },
-            ),
+            proof,
         }
     }
 }
@@ -240,20 +247,23 @@ impl ClearIssuanceResponse {
         use self::proofs::cred_issue_2_clear::*;
 
         // Verify the issuance proof
-        let res = self.proof.verify(
+        verify_compact(
+            &self.proof,
             transcript,
-            Publics {
-                A: &pg.A,
-                B: &pg.B,
-                P: &self.tag.P,
-                Q: &self.tag.Q,
-                X_0: &pk.X_0,
-                X_1: &pk.X_1,
-                X_2: &pk.X_2,
-                m_1_P: &m_1_P,
-                m_2_P: &m_2_P,
+            // A non-proof-of-concept impl could avoid these compressions.
+            VerifyAssignments {
+                A: &pg.A.compress(),
+                B: &pg.B.compress(),
+                P: &self.tag.P.compress(),
+                Q: &self.tag.Q.compress(),
+                X_0: &pk.X_0.compress(),
+                X_1: &pk.X_1.compress(),
+                X_2: &pk.X_2.compress(),
+                m_1_P: &m_1_P.compress(),
+                m_2_P: &m_2_P.compress(),
             },
-        )?;
+        )
+        .map_err(|_discard_error| ())?;
 
         Ok(Credential {
             m_1: req.m_1,
@@ -280,10 +290,10 @@ impl BlindIssuanceRequestSecret {
 }
 
 pub struct BlindIssuanceRequest {
-    enc_m_1: (RistrettoPoint, RistrettoPoint),
-    enc_m_2: (RistrettoPoint, RistrettoPoint),
-    D: RistrettoPoint,
-    proof: proofs::cred_issue_2_blind_user::Proof,
+    enc_m_1: (CompressedRistretto, CompressedRistretto),
+    enc_m_2: (CompressedRistretto, CompressedRistretto),
+    D: CompressedRistretto,
+    proof: CompactProof,
 }
 
 impl BlindIssuanceRequest {
@@ -302,28 +312,28 @@ impl BlindIssuanceRequest {
 
         use self::proofs::cred_issue_2_blind_user::*;
 
+        let (proof, points) = prove_compact(
+            transcript,
+            ProveAssignments {
+                d: &sk.d,
+                e_1: &e_1,
+                e_2: &e_2,
+                m_1: &sk.m_1,
+                m_2: &sk.m_2,
+                E_1_0: &enc_m_1.0,
+                E_1_1: &enc_m_1.1,
+                E_2_0: &enc_m_2.0,
+                E_2_1: &enc_m_2.1,
+                D: &D,
+                B: &pg.B,
+            },
+        );
+
         BlindIssuanceRequest {
-            enc_m_1,
-            enc_m_2,
-            D,
-            proof: Proof::create(
-                transcript,
-                Publics {
-                    E_1_0: &enc_m_1.0,
-                    E_1_1: &enc_m_1.1,
-                    E_2_0: &enc_m_2.0,
-                    E_2_1: &enc_m_2.1,
-                    D: &D,
-                    B: &pg.B,
-                },
-                Secrets {
-                    d: &sk.d,
-                    e_1: &e_1,
-                    e_2: &e_2,
-                    m_1: &sk.m_1,
-                    m_2: &sk.m_2,
-                },
-            ),
+            enc_m_1: (points.E_1_0, points.E_1_1),
+            enc_m_2: (points.E_2_0, points.E_2_1),
+            D: points.D,
+            proof,
         }
     }
 }
@@ -333,7 +343,7 @@ pub struct BlindIssuanceResponse {
     T_1: RistrettoPoint,
     T_2: RistrettoPoint,
     enc_Q: (RistrettoPoint, RistrettoPoint),
-    proof: proofs::cred_issue_2_blind_issuer::Proof,
+    proof: CompactProof,
 }
 
 impl IssuerKeypair {
@@ -344,26 +354,22 @@ impl IssuerKeypair {
     ) -> Result<BlindIssuanceResponse, ()> {
         let pg = PedersenGens::default();
 
+        use self::proofs::cred_issue_2_blind_issuer as issuer_proof;
+        use self::proofs::cred_issue_2_blind_user as user_proof;
+
         // First, verify the request is well-formed:
-        let req_well_formed = {
-            use self::proofs::cred_issue_2_blind_user::*;
-
-            req.proof.verify(
-                transcript,
-                Publics {
-                    E_1_0: &req.enc_m_1.0,
-                    E_1_1: &req.enc_m_1.1,
-                    E_2_0: &req.enc_m_2.0,
-                    E_2_1: &req.enc_m_2.1,
-                    D: &req.D,
-                    B: &pg.B,
-                },
-            )
-        };
-
-        if req_well_formed.is_err() {
-            return Err(());
-        }
+        user_proof::verify_compact(
+            &req.proof,
+            transcript,
+            user_proof::VerifyAssignments {
+                E_1_0: &req.enc_m_1.0,
+                E_1_1: &req.enc_m_1.1,
+                E_2_0: &req.enc_m_2.0,
+                E_2_1: &req.enc_m_2.1,
+                D: &req.D,
+                B: &pg.B.compress(),
+            },
+        )?;
 
         // Now issue the credential
 
@@ -395,45 +401,43 @@ impl IssuerKeypair {
         let t_2 = b * self.sk.x_2;
         let T_2 = b * self.pk.X_2;
 
-        use self::proofs::cred_issue_2_blind_issuer::*;
+        let (proof, _points) = issuer_proof::prove_compact(
+            transcript,
+            issuer_proof::ProveAssignments {
+                X_0: &self.pk.X_0,
+                X_1: &self.pk.X_1,
+                X_2: &self.pk.X_2,
+                A: &pg.A,
+                B: &pg.B,
+                P: &P,
+                D: &req.D,
+                T_1a: &T_1,
+                T_1b: &T_1,
+                T_2a: &T_2,
+                T_2b: &T_2,
+                E_Q_0: &enc_Q.0,
+                E_Q_1: &enc_Q.1,
+                E_1_0: &req.enc_m_1.0,
+                E_1_1: &req.enc_m_1.1,
+                E_2_0: &req.enc_m_2.0,
+                E_2_1: &req.enc_m_2.1,
+                x_0_blinding: &self.sk.x_0_blinding,
+                x_0: &self.sk.x_0,
+                x_1: &self.sk.x_1,
+                x_2: &self.sk.x_2,
+                b: &b,
+                s: &s,
+                t_1: &t_1,
+                t_2: &t_2,
+            },
+        );
 
         Ok(BlindIssuanceResponse {
             P,
             T_1,
             T_2,
             enc_Q,
-            proof: Proof::create(
-                transcript,
-                Publics {
-                    X_0: &self.pk.X_0,
-                    X_1: &self.pk.X_1,
-                    X_2: &self.pk.X_2,
-                    A: &pg.A,
-                    B: &pg.B,
-                    P: &P,
-                    D: &req.D,
-                    T_1a: &T_1,
-                    T_1b: &T_1,
-                    T_2a: &T_2,
-                    T_2b: &T_2,
-                    E_Q_0: &enc_Q.0,
-                    E_Q_1: &enc_Q.1,
-                    E_1_0: &req.enc_m_1.0,
-                    E_1_1: &req.enc_m_1.1,
-                    E_2_0: &req.enc_m_2.0,
-                    E_2_1: &req.enc_m_2.1,
-                },
-                Secrets {
-                    x_0_blinding: &self.sk.x_0_blinding,
-                    x_0: &self.sk.x_0,
-                    x_1: &self.sk.x_1,
-                    x_2: &self.sk.x_2,
-                    b: &b,
-                    s: &s,
-                    t_1: &t_1,
-                    t_2: &t_2,
-                },
-            ),
+            proof,
         })
     }
 }
@@ -450,9 +454,10 @@ impl BlindIssuanceResponse {
 
         use self::proofs::cred_issue_2_blind_issuer::*;
 
-        let resp_result = self.proof.verify(
+        verify_compact(
+            &self.proof,
             transcript,
-            Publics {
+            VerifyAssignments {
                 X_0: &pk.X_0,
                 X_1: &pk.X_1,
                 X_2: &pk.X_2,
@@ -471,11 +476,7 @@ impl BlindIssuanceResponse {
                 E_2_0: &req.enc_m_2.0,
                 E_2_1: &req.enc_m_2.1,
             },
-        );
-
-        if resp_result.is_err() {
-            return Err(());
-        }
+        )?;
 
         let Q = self.enc_Q.1 - sk.d * self.enc_Q.0;
 
@@ -493,7 +494,7 @@ pub struct CredentialPresentation {
     C_m_1: RistrettoPoint,
     C_m_2: RistrettoPoint,
     V: RistrettoPoint,
-    proof: proofs::cred_show_2_hidden::Proof,
+    proof: CompactProof,
 }
 
 impl Credential {
@@ -515,9 +516,9 @@ impl Credential {
 
         use self::proofs::cred_show_2_hidden::*;
 
-        let proof = Proof::create(
+        let proof = prove_compact(
             transcript,
-            Publics {
+            ProveAssignments {
                 X_1: &pk.X_1,
                 X_2: &pk.X_2,
                 A: &pg.A,
@@ -525,8 +526,6 @@ impl Credential {
                 P: &tag.P,
                 C_m_1: &C_m_1,
                 C_m_2: &C_m_2,
-            },
-            Secrets {
                 m_1: &self.m_1,
                 m_2: &self.m_2,
                 z_1: &z_1,
@@ -565,9 +564,10 @@ impl IssuerKeypair {
 
         use self::proofs::cred_show_2_hidden::*;
 
-        pres.proof.verify(
+        verify_compact(
+            &pres.proof,
             transcript,
-            Publics {
+            VerifyAssignments {
                 X_1: &self.pk.X_1,
                 X_2: &self.pk.X_2,
                 A: &pg.A,
@@ -576,7 +576,7 @@ impl IssuerKeypair {
                 C_m_1: &pres.C_m_1,
                 C_m_2: &pres.C_m_2,
             },
-        )
+        ).map_err(|_discard_error| ())?
     }
 }
 
@@ -679,5 +679,4 @@ mod tests {
 
         assert!(pres_result.is_ok());
     }
-
 }

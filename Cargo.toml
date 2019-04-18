@@ -10,5 +10,5 @@ sha3 = "0.8"
 serde = "1"
 serde_derive = "1"
 merlin = "1"
-curve25519-dalek = "1"
-zkp = "0.5"
+curve25519-dalek = { version = "1.1", features = ["simd_backend"] }
+zkp = "0.6"
